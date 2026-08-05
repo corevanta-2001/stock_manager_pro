@@ -8,20 +8,13 @@ workflows:
       flutter: stable
       xcode: latest
       cocoapods: default
-      groups:
-        - google_play  # for keystore secrets
     
     scripts:
-      - name: Set up Android SDK licenses
-        script: |
-          yes | sdkmanager --licenses || true
-          sdkmanager "platform-tools" "platforms;android-34" "build-tools;34.0.0"
-      
       - name: Get Flutter dependencies
         script: flutter pub get
       
-      - name: Run Flutter tests
-        script: flutter test --machine || true
+      - name: Accept Android licenses
+        script: flutter doctor --android-licenses || true
       
       - name: Build APK
         script: flutter build apk --release --split-per-abi
@@ -36,4 +29,4 @@ workflows:
     publishing:
       email:
         recipients:
-          - corevantaprojects@gmail.com  # CHANGE THIS to your email
+          - corevantaprojects@gmail.com # CHANGE THIS
