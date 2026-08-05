@@ -1,33 +1,39 @@
 workflows:
-  android-apk:
-    name: Build Android APK
+  android-release:
+    name: Android Release Build
     max_build_duration: 60
-    instance_type: mac_mini_m1
+    instance_type: mac_mini_m2
+    
     environment:
       flutter: stable
+      xcode: latest
+      cocoapods: default
+      groups:
+        - google_play  # for keystore secrets
+    
     scripts:
-      - name: Find and enter project root
+      - name: Set up Android SDK licenses
         script: |
-          cd $CM_BUILD_DIR
-          echo "Current dir: $(pwd)"
-          echo "Files here:"
-          ls -la
-          # Find folder with pubspec.yaml
-          PROJECT_DIR=$(find . -name pubspec.yaml -exec dirname {} \; | head -n 1)
-          echo "Found pubspec in: $PROJECT_DIR"
-          cd $PROJECT_DIR
-          echo "Now in: $(pwd)"
-      - name: Flutter doctor
-        script: |
-          PROJECT_DIR=$(find . -name pubspec.yaml -exec dirname {} \; | head -n 1)
-          cd $PROJECT_DIR && flutter doctor -v
-      - name: Get Flutter packages
-        script: |
-          PROJECT_DIR=$(find . -name pubspec.yaml -exec dirname {} \; | head -n 1)
-          cd $PROJECT_DIR && flutter pub get
+          yes | sdkmanager --licenses || true
+          sdkmanager "platform-tools" "platforms;android-34" "build-tools;34.0.0"
+      
+      - name: Get Flutter dependencies
+        script: flutter pub get
+      
+      - name: Run Flutter tests
+        script: flutter test --machine || true
+      
       - name: Build APK
-        script: |
-          PROJECT_DIR=$(find . -name pubspec.yaml -exec dirname {} \; | head -n 1)
-          cd $PROJECT_DIR && flutter build apk --release
+        script: flutter build apk --release --split-per-abi
+      
+      - name: Build App Bundle for Play Store
+        script: flutter build appbundle --release
+
     artifacts:
-      - '**/build/app/outputs/flutter-apk/*.apk'
+      - build/app/outputs/flutter-apk/*.apk
+      - build/app/outputs/bundle/release/*.aab
+    
+    publishing:
+      email:
+        recipients:
+          - corevantaprojects@gmail.com  # CHANGE THIS to your email
