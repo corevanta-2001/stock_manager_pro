@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart'; // for debugPrint
 import '../database/db_helper.dart';
 
 class AddStockPage extends StatefulWidget {
@@ -16,6 +17,7 @@ class _AddStockPageState extends State<AddStockPage> {
   final _formKey = GlobalKey<FormState>();
 
   addStock() async {
+
   try {
     if(!_formKey.currentState!.validate()) return;
     double qty = double.parse(qtyCtrl.text.replaceAll(',', '.'));
@@ -40,8 +42,8 @@ class _AddStockPageState extends State<AddStockPage> {
 
       await Future.delayed(Duration(milliseconds: 300)); // <-- INCREASED to 300ms for web
       if(mounted) Navigator.pop(context, true);
-    }
-  } catch (e, stack) {
+
+    catch (e, stack) {
     if(mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Failed: $e'), backgroundColor: Colors.red, duration: Duration(seconds: 4))
@@ -51,6 +53,14 @@ class _AddStockPageState extends State<AddStockPage> {
     debugPrint(stack.toString());
   }
 }
+
+
+  @override
+  void dispose() {
+    nameCtrl.dispose();
+    qtyCtrl.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
