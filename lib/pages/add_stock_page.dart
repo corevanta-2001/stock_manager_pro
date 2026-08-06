@@ -16,11 +16,12 @@ class _AddStockPageState extends State<AddStockPage> {
   final _formKey = GlobalKey<FormState>();
 
   addStock() async {
+  try {
     if(!_formKey.currentState!.validate()) return;
     double qty = double.parse(qtyCtrl.text.replaceAll(',', '.'));
     
     await DBHelper.addStock(nameCtrl.text, qty, unit);
-    widget.onAdded(); // Refresh parent data + drawer
+    widget.onAdded(); // <-- REMOVE AWAIT HERE. Just call it
 
     if(mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -31,9 +32,25 @@ class _AddStockPageState extends State<AddStockPage> {
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))
         )
       );
-      Navigator.pop(context, true); // <-- RETURN TRUE SO WE KNOW TO GO HOME
+      
+      nameCtrl.clear();
+      qtyCtrl.clear();
+      setState(() => unit = 'kg');
+      FocusScope.of(context).unfocus();
+
+      await Future.delayed(Duration(milliseconds: 300)); // <-- INCREASED to 300ms for web
+      if(mounted) Navigator.pop(context, true);
     }
+  } catch (e, stack) {
+    if(mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed: $e'), backgroundColor: Colors.red, duration: Duration(seconds: 4))
+      );
+    }
+    debugPrint("ADD STOCK ERROR: $e");
+    debugPrint(stack.toString());
   }
+}
 
   @override
   Widget build(BuildContext context) {
