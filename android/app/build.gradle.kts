@@ -4,8 +4,8 @@ plugins {
     id("dev.flutter.flutter-gradle-plugin")
 }
 
-val flutterVersionCode: String by project
-val flutterVersionName: String by project
+val flutterVersionCode: String by lazy { project.findProperty("flutter.versionCode")?.toString() ?: "1" }
+val flutterVersionName: String by lazy { project.findProperty("flutter.versionName")?.toString() ?: "1.0.0" }
 
 android {
     namespace = "com.example.stock_manager_pro"
