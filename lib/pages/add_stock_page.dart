@@ -45,7 +45,7 @@ class _AddStockPageState extends State<AddStockPage> {
           child: Form(
             key: _formKey,
             child: Column(children: [
-              Container(padding: EdgeInsets.all(20), decoration: BoxDecoration(gradient: LinearGradient(colors: [Colors.teal, Colors.teal.shade300]), borderRadius: BorderRadius.circular(20)), child: Icon(Icons.inventory_2, size: 50, color: Colors.white)),
+              Container(padding: EdgeInsets.all(20), decoration: BoxDecoration(gradient: LinearGradient(colors: [Colors.teal, Colors.teal.shade300]),  orderRadius: BorderRadius.circular(20)), child: Icon(Icons.inventory_2, size: 50, color: Colors.white)),
               SizedBox(height: 25),
               TextFormField(controller: nameCtrl, decoration: InputDecoration(labelText: 'Stock Name', hintText: 'e.g. RICE, WHEAT', border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)), prefixIcon: Icon(Icons.label, color: Colors.teal)), validator: (v) => v!.isEmpty? 'Enter stock name' : null),
               SizedBox(height: 15),

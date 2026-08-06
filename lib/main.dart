@@ -170,7 +170,7 @@ class _MainScaffoldState extends State<MainScaffold> {
                   ListTile(leading: Icon(Icons.add_circle_outline), title: Text('Top Up Stock'), onTap: () { Navigator.pop(context); _openTopUpPage(); }),
                   ListTile(leading: Icon(Icons.remove_shopping_cart), title: Text('Log Usage'), onTap: () { Navigator.pop(context); _openAddUsagePage(); }),
                   ListTile(leading: Icon(Icons.checklist), title: Text('To-Do List'), onTap: () => setState(() { _currentIndex = 2; Navigator.pop(context); })), // NEW
-                  ListTile(leading: Icon(Icons.bar_chart), title: Text('Analytics'), onTap: () => setState(() { _currentIndex = 3; Navigator.pop(context); })), // CHANGED index
+                  ListTile(leading: Icon(Icons.bar_chart), title: Text('Stock Stats'), onTap: () => setState(() { _currentIndex = 3; Navigator.pop(context); })), // CHANGED index
                 ],
               ),
             )
@@ -187,8 +187,6 @@ class _MainScaffoldState extends State<MainScaffold> {
             setState(() => _currentIndex = i);
           } else if(i == 3) { // Usage tab - shifted because To-Do added
             _openAddUsagePage();
-          } else if(i== 4){
-              _openAnalyticsPage();
           } else {
             setState(() => _currentIndex = i);
           }
@@ -198,7 +196,7 @@ class _MainScaffoldState extends State<MainScaffold> {
           NavigationDestination(icon: Icon(Icons.add_box), label: 'Stock'),
           NavigationDestination(icon: Icon(Icons.checklist), label: 'To-Do'), // NEW
           NavigationDestination(icon: Icon(Icons.remove_shopping_cart), label: 'Usage'), // CHANGED position
-          NavigationDestination(icon: Icon(Icons.bar_chart), label: 'Stats'),
+          
         ],
       ),
     );
