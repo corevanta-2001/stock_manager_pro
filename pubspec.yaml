@@ -1,4 +1,4 @@
-name: Stock_Manager
+name: "stock_manager" 
 description: "Beautiful Stock Manager"
 publish_to: 'none'
 version: 1.0.0+1
@@ -13,7 +13,7 @@ dependencies:
   intl: ^0.19.0
   fl_chart: ^0.68.0 # for beautiful charts
   google_fonts: ^6.2.1
-  shared_preferences: ^2.5.5
+  shared_preferences: 2.5.5
 
 flutter:
   uses-material-design: true

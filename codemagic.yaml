@@ -1,16 +1,33 @@
 workflows:
-  android-release:
-    name: Android Release SDK34
-    instance_type: mac_mini_m2
-    max_build_duration: 120
+  android-apk:
+    name: Build Android APK
+    max_build_duration: 60
+    instance_type: mac_mini_m1
     environment:
       flutter: stable
-      java: 17
-      vars:
-        ANDROID_COMPILE_SDK_VERSION: "34"
-        ANDROID_TARGET_SDK_VERSION: "34"
     scripts:
-      - flutter pub get
-      - flutter build apk --release
+      - name: Find and enter project root
+        script: |
+          cd $CM_BUILD_DIR
+          echo "Current dir: $(pwd)"
+          echo "Files here:"
+          ls -la
+          # Find folder with pubspec.yaml
+          PROJECT_DIR=$(find . -name pubspec.yaml -exec dirname {} \; | head -n 1)
+          echo "Found pubspec in: $PROJECT_DIR"
+          cd $PROJECT_DIR
+          echo "Now in: $(pwd)"
+      - name: Flutter doctor
+        script: |
+          PROJECT_DIR=$(find . -name pubspec.yaml -exec dirname {} \; | head -n 1)
+          cd $PROJECT_DIR && flutter doctor -v
+      - name: Get Flutter packages
+        script: |
+          PROJECT_DIR=$(find . -name pubspec.yaml -exec dirname {} \; | head -n 1)
+          cd $PROJECT_DIR && flutter pub get
+      - name: Build APK
+        script: |
+          PROJECT_DIR=$(find . -name pubspec.yaml -exec dirname {} \; | head -n 1)
+          cd $PROJECT_DIR && flutter build apk --release
     artifacts:
-      - build/app/outputs/flutter-apk/*.apk
+      - '**/build/app/outputs/flutter-apk/*.apk'
