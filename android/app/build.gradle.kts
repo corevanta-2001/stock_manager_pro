@@ -5,7 +5,7 @@ plugins {
 }
 
 val flutterVersionCode: String by lazy { project.findProperty("flutter.versionCode")?.toString() ?: "1" }
-val flutterVersionName: String by lazy { project.findProperty("flutter.versionName")?.toString() ?: "1.0.0" }
+val flutterVersionName: String by lazy { project.findProperty("flutter.versionName")?.toString() ?: "1.0.0"} 
 
 android {
     namespace = "com.example.stock_manager_pro"
@@ -24,8 +24,11 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
     }
     
-    kotlinOptions {
-        jvmTarget = "17"
+    // NEW WAY FOR AGP 9.0+
+    kotlin {
+        compilerOptions {
+            jvmTarget.set(JvmTarget.JVM_17)
+        }
     }
 
     signingConfigs {
