@@ -5,11 +5,11 @@ plugins {
 }
 
 android {
-    namespace = "com.example.yourapp" // CHANGE THIS to your real app id
+    namespace = "com.example.yourapp"
     compileSdk = 34
 
     defaultConfig {
-        applicationId = "com.example.yourapp" // CHANGE THIS
+        applicationId = "com.example.yourapp"
         minSdk = 21
         targetSdk = 34
         versionCode = 1
@@ -27,7 +27,7 @@ android {
 
     buildTypes {
         release {
-            isMinifyEnabled = false // set to false to avoid crash for now
+            isMinifyEnabled = false
             isShrinkResources = false
             signingConfig = signingConfigs.getByName("debug")
         }
@@ -36,7 +36,6 @@ android {
 
 dependencies {
     implementation("com.google.android.play:core:1.10.3")
-    implementation("com.google.android.play:core-ktx:1.8.1")
 }
 
 flutter {
