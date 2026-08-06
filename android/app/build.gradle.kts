@@ -9,7 +9,7 @@ val flutterVersionName: String by lazy { project.findProperty("flutter.versionNa
 
 android {
     namespace = "com.example.stock_manager_pro"
-    compileSdk = 34
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "com.example.stock_manager_pro"
