@@ -29,6 +29,7 @@ class _AddUsagePageState extends State<AddUsagePage> {
   }
 
   saveUsage() async {
+  try { // <-- ADD TRY CATCH
     if(selected == null || usedCtrl.text.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Please select stock and enter quantity'), backgroundColor: Colors.red)
@@ -53,22 +54,35 @@ class _AddUsagePageState extends State<AddUsagePage> {
       notesCtrl.text
     );
     
-    widget.onAdded?.call(); // NEW: Refresh home + drawer
+    await widget.onAdded?.call(); // <-- 1. ADD AWAIT
     
-    usedCtrl.clear(); notesCtrl.clear();
-    loadStocks(); // Refresh dropdown
+    usedCtrl.clear(); 
+    notesCtrl.clear();
+    await loadStocks(); // <-- 2. AWAIT so dropdown updates
     
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Usage logged for ${selected!['name']}'), 
-        backgroundColor: Colors.orange,
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))
-      )
-    );
-    Navigator.pop(context, true); // <-- CHANGED: RETURN TRUE TO GO HOME
+    if(mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Usage logged for ${selected!['name']}'), 
+          backgroundColor: Colors.orange,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))
+        )
+      );
+      
+      await Future.delayed(Duration(milliseconds: 150)); // <-- 3. Let home refresh
+      if(mounted) Navigator.pop(context, true); // <-- 4. Now pop
+    }
+  } catch (e, stack) {
+    if(mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed: $e'), backgroundColor: Colors.red, duration: Duration(seconds: 4))
+      );
+    }
+    debugPrint("ADD USAGE ERROR: $e");
+    debugPrint(stack.toString());
   }
-
+}
   @override
   Widget build(BuildContext context) {
     return Scaffold(
