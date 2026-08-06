@@ -9,7 +9,3 @@
 # SharedPreferences
 -keep class io.flutter.plugins.sharedpreferences.** { *; }
 -keep class androidx.** { *; }
-
-# Play Core
--keep class com.google.android.play.core.** { *; }
--dontwarn com.google.android.play.core.**
