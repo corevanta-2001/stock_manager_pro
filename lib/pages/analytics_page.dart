@@ -20,7 +20,7 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
     loadData();
   }
 
-  loadData() async {
+Future<void> loadData() async {
     try {
       setState(() { isLoading = true; error = null; });
       data = await DBHelper.getDashboardData(); // <-- Same function, now uses SQLite

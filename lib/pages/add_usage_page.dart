@@ -47,14 +47,14 @@ class _AddUsagePageState extends State<AddUsagePage> {
       return;
     }
 
-    await DBHelper.addUsage(
+     await DBHelper.addUsage(
       selected!['id'], 
       used,
       DateFormat('yyyy-MM-dd').format(date),
       notesCtrl.text
     );
     
-    await widget.onAdded?.call(); // <-- 1. ADD AWAIT
+     widget.onAdded?.call(); // <-- 1. ADD AWAIT
     
     usedCtrl.clear(); 
     notesCtrl.clear();
