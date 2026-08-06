@@ -7,32 +7,28 @@ plugins {
 android {
     namespace = "com.example.yourapp" // CHANGE THIS to your real app id
     compileSdk = 34
-    
-    compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_17
-        targetCompatibility = JavaVersion.VERSION_17
-    }
-    
-    kotlinOptions {
-        jvmTarget = "17"
-    }
-    
+
     defaultConfig {
-        applicationId = "com.example.yourapp" // CHANGE THIS to your real app id
+        applicationId = "com.example.yourapp" // CHANGE THIS
         minSdk = 21
         targetSdk = 34
         versionCode = 1
         versionName = "1.0.0"
     }
     
+    compileOptions {
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
+    }
+
+    kotlinOptions {
+        jvmTarget = "17"
+    }
+
     buildTypes {
         release {
-            isMinifyEnabled = true
-            isShrinkResources = true
-            proguardFiles(
-                getDefaultProguardFile("proguard-android-optimize.txt"),
-                "proguard-rules.pro"
-            )
+            isMinifyEnabled = false // set to false to avoid crash for now
+            isShrinkResources = false
             signingConfig = signingConfigs.getByName("debug")
         }
     }
