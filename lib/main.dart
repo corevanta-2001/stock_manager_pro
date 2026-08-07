@@ -8,6 +8,7 @@ import 'pages/analytics_page.dart';
 import 'pages/top_up_stock_page.dart';
 import 'pages/stock_detail_page.dart';
 import 'pages/todo_page.dart';
+import 'services/export_service.dart'; // ADD THIS IMPORT
 
 void main() => runApp(StockApp());
 
@@ -113,6 +114,19 @@ class _MainScaffoldState extends State<MainScaffold> {
         centerTitle: true,
         elevation: 0,
         backgroundColor: Colors.teal,
+        actions: [ // <-- ONLY CHANGE STARTS HERE
+          if(_currentIndex == 0) // only show on Dashboard
+            IconButton(
+              icon: Icon(Icons.file_download_outlined),
+              tooltip: 'Export to Excel',
+              onPressed: () async {
+                await ExportService.exportStocksToCSV();
+                if(mounted) ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('Report exported and ready to share'))
+                );
+              },
+            )
+        ], // <-- ONLY CHANGE ENDS HERE
       ),
       drawer: Drawer(
         child: Column(
