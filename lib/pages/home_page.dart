@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart'; // ADD THIS FOR DATE
 import '../database/db_helper.dart';
 import 'stock_detail_page.dart';
 import 'top_up_stock_page.dart';
@@ -11,9 +12,13 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
-  List<Map<String, dynamic>> data = []; // typed
+  List<Map<String, dynamic>> _allData = []; // typed
+  List<Map<String, dynamic>> data = []; // filtered data shown on screen
   bool _loading = true;
   bool _isFetching = false; // prevent multiple calls
+
+  // SEARCH + FILTER
+  String _searchQuery = '';
 
   @override
   void initState() {
@@ -30,7 +35,9 @@ class _HomePageState extends State<HomePage> {
       final raw = await DBHelper.getDashboardData();
       // KEY FIX FOR RELEASE: mutable copy
       final result = raw.map((e) => Map<String, dynamic>.from(e)).toList();
-      if(mounted) setState(() => data = result);
+      _allData = result;
+      _applySearch(); // apply search on new data
+      widget.onRefresh?.call();
     } catch (e) {
       debugPrint("HOME ERROR: $e");
     }
@@ -39,7 +46,16 @@ class _HomePageState extends State<HomePage> {
     _isFetching = false;
   }
 
-  // REMOVED didUpdateWidget - this was causing infinite reload
+  void _applySearch() {
+    if (_searchQuery.isEmpty) {
+      data = _allData;
+    } else {
+      data = _allData.where((s) =>
+        s['name'].toString().toLowerCase().contains(_searchQuery.toLowerCase())
+      ).toList();
+    }
+    if(mounted) setState(() {});
+  }
 
   Future<void> _confirmDelete(Map stock) async {
     bool? confirm = await showDialog(
@@ -72,80 +88,147 @@ class _HomePageState extends State<HomePage> {
   @override
   Widget build(BuildContext context) {
     // Show loading only on first load
-    if(_loading && data.isEmpty) return Center(child: CircularProgressIndicator(color: Colors.teal));
+    if(_loading && _allData.isEmpty) return Center(child: CircularProgressIndicator(color: Colors.teal));
 
-    double totalStock = data.fold(0, (sum, e) => sum + (e['initialQty'] as num).toDouble());
-    double totalUsed = data.fold(0, (sum, e) => sum + (e['totalUsed'] as num).toDouble());
-    var lowStock = data.where((e) => (e['currentLeft'] as num).toDouble() < (e['initialQty'] as num).toDouble() * 0.2).toList();
+    int totalItems = _allData.length;
+    var lowStock = _allData.where((e) => (e['currentLeft'] as num).toDouble() < (e['initialQty'] as num).toDouble() * 0.2).toList();
+    String today = DateFormat('EEE, dd MMM yyyy').format(DateTime.now()); // e.g. Fri, 04 Apr 2026
 
     return RefreshIndicator(
       color: Colors.teal,
       onRefresh: loadData,
-      child: data.isEmpty
- ? ListView(children: [SizedBox(height: 120), Center(child: Column(children: [Icon(Icons.inventory_2_outlined, size: 100, color: Colors.grey.shade300), SizedBox(height: 16), Text('No stocks yet', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)), Text('Pull down or add your first stock', style: TextStyle(color: Colors.grey))]))])
-        : ListView(
-          padding: EdgeInsets.all(16),
-          children: [
-            Row(children: [
-              Expanded(child: _statCard('Total Stock', totalStock.toStringAsFixed(1), Icons.inventory, [Colors.blue.shade400, Colors.blue.shade600])),
-              SizedBox(width: 12),
-              Expanded(child: _statCard('Used', totalUsed.toStringAsFixed(1), Icons.trending_down, [Colors.orange.shade400, Colors.orange.shade600])),
-            ]),
-            SizedBox(height: 24),
-            if(lowStock.isNotEmpty)...[
-              Text('Low Stock Alert', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-              SizedBox(height: 12),
-        ...lowStock.map((e) => Container(margin: EdgeInsets.only(bottom: 10), decoration: BoxDecoration(color: Colors.red.shade50, borderRadius: BorderRadius.circular(16), border: Border.all(color: Colors.red.shade100)), child: ListTile(leading: Container(padding: EdgeInsets.all(8), decoration: BoxDecoration(color: Colors.red.shade100, borderRadius: BorderRadius.circular(10)), child: Icon(Icons.warning_amber_rounded, color: Colors.red)), title: Text(e['name'].toString(), style: TextStyle(fontWeight: FontWeight.bold)), trailing: Text('${(e['currentLeft'] as num).toStringAsFixed(1)} ${e['unit']} left', style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold))))),
-              SizedBox(height: 12),
-            ] else...[
-              Container(padding: EdgeInsets.all(16), decoration: BoxDecoration(color: Colors.green.shade50, borderRadius: BorderRadius.circular(16)), child: Row(children: [Icon(Icons.check_circle, color: Colors.green), SizedBox(width: 10), Text('All stocks are healthy', style: TextStyle(color: Colors.green.shade800, fontWeight: FontWeight.bold))])),
-              SizedBox(height: 24),
-            ],
-            Text('All Stocks', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-            SizedBox(height: 12),
-      ...data.map((e) {
-              double initial = (e['initialQty'] as num).toDouble();
-              double current = (e['currentLeft'] as num).toDouble();
-              double progress = initial > 0? (current / initial).clamp(0, 1).toDouble() : 0;
-              return Container(
-                margin: EdgeInsets.only(bottom: 12),
-                decoration: BoxDecoration(color: Theme.of(context).cardColor, borderRadius: BorderRadius.circular(16), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 8, offset: Offset(0, 2))]),
-                child: ListTile(
-                  onTap: () async {
-                    await Navigator.push(context, MaterialPageRoute(builder: (_) => StockDetailPage(stockId: e['id'])));
-                    loadData(); // refresh when coming back
-                  },
-                  contentPadding: EdgeInsets.all(16),
-                  leading: CircleAvatar(backgroundColor: Colors.teal.shade100, child: Text(e['name'].toString()[0].toUpperCase(), style: TextStyle(color: Colors.teal, fontWeight: FontWeight.bold))),
-                  title: Text(e['name'].toString(), style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                  subtitle: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    SizedBox(height: 8),
-                    ClipRRect(borderRadius: BorderRadius.circular(10), child: LinearProgressIndicator(value: progress, minHeight: 6, backgroundColor: Colors.grey.shade200, color: progress < 0.2? Colors.red : Colors.teal)),
-                    SizedBox(height: 6),
-                    Text('${current.toStringAsFixed(1)} / ${initial.toStringAsFixed(1)} ${e['unit']}', style: TextStyle(fontSize: 12, color: Colors.grey)),
-                  ]),
-                  trailing: Row(mainAxisSize: MainAxisSize.min, children: [
-                    IconButton(icon: Icon(Icons.add_circle_outline, color: Colors.green), onPressed: () => _openTopUpForStock(e)),
-                    IconButton(icon: Icon(Icons.delete_outline, color: Colors.red.shade300), onPressed: () => _confirmDelete(e)),
-                  ]),
-                )
-              );
-            })
-          ],
-        ),
+      child: CustomScrollView(
+        slivers: [
+          // SEARCH BAR
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+              child: TextField(
+                decoration: InputDecoration(
+                  hintText: 'Search stock...',
+                  prefixIcon: Icon(Icons.search),
+                  suffixIcon: _searchQuery.isNotEmpty
+                 ? IconButton(
+                        icon: Icon(Icons.clear),
+                        onPressed: () {
+                          _searchQuery = '';
+                          _applySearch();
+                        },
+                      )
+                    : null,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  filled: true,
+                  fillColor: Theme.of(context).cardColor,
+                ),
+                onChanged: (value) {
+                  _searchQuery = value;
+                  _applySearch();
+                },
+              ),
+            ),
+          ),
+
+          // STAT CARDS - Always show
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              child: Row(children: [
+                // CARD 1: UPDATED
+                Expanded(child: _statCard(
+                  'Welcome back!',
+                  '$totalItems Stocks\n$today',
+                  Icons.waving_hand_rounded, // better icon
+                  [Colors.teal.shade400, Colors.teal.shade600]
+                )),
+                SizedBox(width: 12),
+                // CARD 2: DEVELOPER - UNCHANGED
+                Expanded(child: _statCard(
+                  'Developer',
+                  'puremundex@gmail.com\n@Core-Vanta',
+                  Icons.code_rounded,
+                  [Colors.purple.shade400, Colors.purple.shade600]
+                )),
+              ]),
+            ),
+          ),
+
+          // CONTENT
+          if(_allData.isEmpty)
+            SliverFillRemaining(
+              child: ListView(children: [SizedBox(height: 60), Center(child: Column(children: [Icon(Icons.inventory_2_outlined, size: 100, color: Colors.grey.shade300), SizedBox(height: 16), Text('No stocks yet', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)), Text('Pull down or add your first stock', style: TextStyle(color: Colors.grey))]))])
+            )
+          else
+            SliverList(
+              delegate: SliverChildListDelegate([
+                Padding(padding: EdgeInsets.fromLTRB(16, 16, 16, 0), child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    if(lowStock.isNotEmpty)...[
+                      Text('Low Stock Alert', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                      SizedBox(height: 12),
+              ...lowStock.map((e) => Container(margin: EdgeInsets.only(bottom: 10), decoration: BoxDecoration(color: Colors.red.shade50, borderRadius: BorderRadius.circular(16), border: Border.all(color: Colors.red.shade100)), child: ListTile(leading: Container(padding: EdgeInsets.all(8), decoration: BoxDecoration(color: Colors.red.shade100, borderRadius: BorderRadius.circular(10)), child: Icon(Icons.warning_amber_rounded, color: Colors.red)), title: Text(e['name'].toString(), style: TextStyle(fontWeight: FontWeight.bold)), trailing: Text('${(e['currentLeft'] as num).toStringAsFixed(1)} ${e['unit']} left', style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold))))),
+                      SizedBox(height: 12),
+                    ] else...[
+                      Container(padding: EdgeInsets.all(16), decoration: BoxDecoration(color: Colors.green.shade50, borderRadius: BorderRadius.circular(16)), child: Row(children: [Icon(Icons.check_circle, color: Colors.green), SizedBox(width: 10), Text('All stocks are healthy', style: TextStyle(color: Colors.green.shade800, fontWeight: FontWeight.bold))])),
+                      SizedBox(height: 24),
+                    ],
+                    Text('All Stocks', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                    SizedBox(height: 12),
+                  ],
+                )),
+              ] + (data.isEmpty && _searchQuery.isNotEmpty
+                ? [Padding(padding: EdgeInsets.all(32), child: Center(child: Text('No results for "$_searchQuery"')))]
+                  : data.map((e) {
+                      double initial = (e['initialQty'] as num).toDouble();
+                      double current = (e['currentLeft'] as num).toDouble();
+                      double progress = initial > 0? (current / initial).clamp(0, 1).toDouble() : 0;
+                      return Container(
+                        margin: EdgeInsets.only(bottom: 12, left: 16, right: 16),
+                        decoration: BoxDecoration(color: Theme.of(context).cardColor, borderRadius: BorderRadius.circular(16), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 8, offset: Offset(0, 2))]),
+                        child: ListTile(
+                          onTap: () async {
+                            await Navigator.push(context, MaterialPageRoute(builder: (_) => StockDetailPage(stockId: e['id'])));
+                            loadData(); // refresh when coming back
+                          },
+                          contentPadding: EdgeInsets.all(16),
+                          leading: CircleAvatar(backgroundColor: Colors.teal.shade100, child: Text(e['name'].toString()[0].toUpperCase(), style: TextStyle(color: Colors.teal, fontWeight: FontWeight.bold))),
+                          title: Text(e['name'].toString(), style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                          subtitle: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                            SizedBox(height: 8),
+                            ClipRRect(borderRadius: BorderRadius.circular(10), child: LinearProgressIndicator(value: progress, minHeight: 6, backgroundColor: Colors.grey.shade200, color: progress < 0.2? Colors.red : Colors.teal)),
+                            SizedBox(height: 6),
+                            Text('${current.toStringAsFixed(1)} / ${initial.toStringAsFixed(1)} ${e['unit']}', style: TextStyle(fontSize: 12, color: Colors.grey)),
+                          ]),
+                          trailing: Row(mainAxisSize: MainAxisSize.min, children: [
+                            IconButton(icon: Icon(Icons.add_circle_outline, color: Colors.green), onPressed: () => _openTopUpForStock(e)),
+                            IconButton(icon: Icon(Icons.delete_outline, color: Colors.red.shade300), onPressed: () => _confirmDelete(e)),
+                          ]),
+                        )
+                      );
+                    }).toList()
+                ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
   Widget _statCard(String title, String value, IconData icon, List<Color> gradient) {
     return Container(
+      height: 130,
       decoration: BoxDecoration(gradient: LinearGradient(colors: gradient, begin: Alignment.topLeft, end: Alignment.bottomRight), borderRadius: BorderRadius.circular(20), boxShadow: [BoxShadow(color: gradient[1].withOpacity(0.3), blurRadius: 10, offset: Offset(0, 4))]),
       child: Padding(
-        padding: EdgeInsets.all(18),
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Container(padding: EdgeInsets.all(8), decoration: BoxDecoration(color: Colors.white.withOpacity(0.2), borderRadius: BorderRadius.circular(12)), child: Icon(icon, color: Colors.white, size: 26)),
-          SizedBox(height: 14),
-          Text(value, style: TextStyle(fontSize: 26, fontWeight: FontWeight.bold, color: Colors.white)),
-          Text(title, style: TextStyle(color: Colors.white70, fontSize: 13))
+        padding: EdgeInsets.all(14),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+          Container(padding: EdgeInsets.all(8), decoration: BoxDecoration(color: Colors.white.withOpacity(0.2), borderRadius: BorderRadius.circular(12)), child: Icon(icon, color: Colors.white, size: 24)),
+          Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(value, style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white)),
+            SizedBox(height: 2),
+            Text(title, style: TextStyle(color: Colors.white70, fontSize: 11))
+          ])
         ]),
       ),
     );
