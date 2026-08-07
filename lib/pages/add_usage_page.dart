@@ -15,12 +15,14 @@ class _AddUsagePageState extends State<AddUsagePage> {
   Map? selected;
   final usedCtrl = TextEditingController();
   final notesCtrl = TextEditingController();
-  DateTime date = DateTime.now();
+  final DateTime date = DateTime.now(); // CHANGED: now final, always today
 
   @override
   void initState() {
     super.initState();
     loadStocks();
+    usedCtrl.addListener(() => setState((){})); // CHANGED: rebuild when typing to enable/disable button
+    notesCtrl.addListener(() => setState((){})); // NEW: also rebuild when notes change
   }
 
   loadStocks() async {
@@ -28,11 +30,17 @@ class _AddUsagePageState extends State<AddUsagePage> {
     setState(() {});
   }
 
+  bool get _isButtonEnabled { // CHANGED: now checks ALL 3 fields
+    return selected != null && 
+           usedCtrl.text.trim().isNotEmpty && 
+           notesCtrl.text.trim().isNotEmpty;
+  }
+
   saveUsage() async {
   try { // <-- ADD TRY CATCH
-    if(selected == null || usedCtrl.text.isEmpty) {
+    if(selected == null || usedCtrl.text.isEmpty || notesCtrl.text.isEmpty) { // CHANGED: added notes check
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Please select stock and enter quantity'), backgroundColor: Colors.red)
+        SnackBar(content: Text('Please fill all fields'), backgroundColor: Colors.red) // CHANGED: message
       );
       return;
     }
@@ -50,7 +58,7 @@ class _AddUsagePageState extends State<AddUsagePage> {
      await DBHelper.addUsage(
       selected!['id'], 
       used,
-      DateFormat('yyyy-MM-dd').format(date),
+      DateFormat('yyyy-MM-dd').format(date), // CHANGED: always today's date
       notesCtrl.text
     );
     
@@ -107,10 +115,21 @@ class _AddUsagePageState extends State<AddUsagePage> {
             SizedBox(height: 15),
             TextField(controller: usedCtrl, decoration: InputDecoration(labelText: 'Quantity Used', border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)), prefixIcon: Icon(Icons.remove, color: Colors.orange)), keyboardType: TextInputType.numberWithOptions(decimal: true)),
             SizedBox(height: 15),
-            TextField(controller: notesCtrl, decoration: InputDecoration(labelText: 'Notes - Optional', border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)), prefixIcon: Icon(Icons.note, color: Colors.orange)), maxLines: 2),
-            Card(margin: EdgeInsets.symmetric(vertical: 15), child: ListTile(leading: Icon(Icons.calendar_today, color: Colors.orange), title: Text('Date'), subtitle: Text(DateFormat('dd MMM yyyy').format(date), style: TextStyle(fontWeight: FontWeight.bold)), trailing: IconButton(icon: Icon(Icons.edit), onPressed: () async {final d = await showDatePicker(context: context, initialDate: date, firstDate: DateTime(2020), lastDate: DateTime(2100)); if(d!=null) setState(() => date = d);}))),
+            TextField(controller: notesCtrl, decoration: InputDecoration(labelText: 'Notes - Required', border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)), prefixIcon: Icon(Icons.note, color: Colors.orange)), maxLines: 2), // CHANGED: label
+            // CHANGED: Date is now read-only and shows today
+            Card(margin: EdgeInsets.symmetric(vertical: 15), child: ListTile(leading: Icon(Icons.calendar_today, color: Colors.orange), title: Text('Date'), subtitle: Text(DateFormat('dd MMM yyyy').format(date), style: TextStyle(fontWeight: FontWeight.bold)), trailing: Icon(Icons.lock, color: Colors.grey))), 
+            
             SizedBox(height: 20),
-            FilledButton.icon(onPressed: saveUsage, icon: Icon(Icons.save), label: Text('Log Usage', style: TextStyle(fontSize: 16)), style: FilledButton.styleFrom(minimumSize: Size(double.infinity, 55), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)), backgroundColor: Colors.orange))
+            FilledButton.icon(
+              onPressed: _isButtonEnabled ? saveUsage : null, // CHANGED: disabled if ANY field empty
+              icon: Icon(Icons.save), 
+              label: Text('Log Usage', style: TextStyle(fontSize: 16)), 
+              style: FilledButton.styleFrom(
+                minimumSize: Size(double.infinity, 55), 
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)), 
+                backgroundColor: Colors.orange
+              )
+            )
           ]),
         ),
       ),
