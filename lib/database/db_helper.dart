@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:sqflite_common_ffi_web/sqflite_ffi_web.dart'; // ADD for web
 
 class DBHelper {
   static Database? _db;
@@ -12,12 +14,48 @@ class DBHelper {
   }
 
   static Future<Database> _initDB() async {
-    String path = join(await getDatabasesPath(), 'stocks.db');
-    return await openDatabase(
-      path,
-      version: 1,
-      onCreate: _onCreate,
-    );
+    if (kIsWeb) {
+      // KEY FIX 1: WEB SUPPORT
+      var factory = databaseFactoryFfiWeb;
+      final db = await factory.openDatabase('stocks.db');
+      // create tables manually because onCreate doesn't fire on web
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS stocks(
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          name TEXT UNIQUE,
+          initialQty REAL,
+          unit TEXT
+        )
+      ''');
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS usage_log(
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          stockId INTEGER,
+          qtyUsed REAL,
+          date TEXT,
+          notes TEXT,
+          FOREIGN KEY (stockId) REFERENCES stocks(id) ON DELETE CASCADE
+        )
+      ''');
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS topups_log(
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          stockId INTEGER,
+          qty REAL,
+          date TEXT,
+          FOREIGN KEY (stockId) REFERENCES stocks(id) ON DELETE CASCADE
+        )
+      ''');
+      return db;
+    } else {
+      // ANDROID/IOS
+      String path = join(await getDatabasesPath(), 'stocks.db');
+      return await openDatabase(
+        path,
+        version: 1,
+        onCreate: _onCreate,
+      );
+    }
   }
 
   static Future _onCreate(Database db, int version) async {
@@ -51,13 +89,11 @@ class DBHelper {
   }
 
   static Future<int> _getNextId() async {
-    // Not needed with AUTOINCREMENT, but kept for compatibility
     return 0;
   }
 
   static Future<int> addStock(String name, double qty, String unit) async {
     final db = await database;
-    // Same behavior as before: replace if name exists
     await db.delete('stocks', where: 'LOWER(name) =?', whereArgs: [name.trim().toLowerCase()]);
     return await db.insert('stocks', {
       'name': name.trim(),
@@ -68,7 +104,8 @@ class DBHelper {
 
   static Future<List<Map<String, dynamic>>> getStocksRaw() async {
     final db = await database;
-    return await db.query('stocks');
+    final res = await db.query('stocks');
+    return res.map((e) => Map<String, dynamic>.from(e)).toList(); // KEY FIX 2: mutable copy
   }
 
   static Future<List<Map<String, dynamic>>> getStocks() async {
@@ -77,26 +114,31 @@ class DBHelper {
     List<Map<String, dynamic>> usage = await db.query('usage_log');
     List<Map<String, dynamic>> topups = await db.query('topups_log');
 
+    List<Map<String, dynamic>> result = [];
     for (var s in stocks) {
-      double initial = (s['initialQty'] as num).toDouble();
+      // KEY FIX 3: mutable copy for release
+      Map<String, dynamic> stock = Map<String, dynamic>.from(s);
+      double initial = (stock['initialQty'] as num).toDouble();
       double totalUsed = usage
-         .where((u) => u['stockId'] == s['id'])
-         .fold(0.0, (sum, u) => sum + (u['qtyUsed'] as num).toDouble());
+        .where((u) => u['stockId'] == stock['id'])
+        .fold(0.0, (sum, u) => sum + (u['qtyUsed'] as num).toDouble());
       double totalTopUp = topups
-         .where((t) => t['stockId'] == s['id'])
-         .fold(0.0, (sum, t) => sum + (t['qty'] as num).toDouble());
+        .where((t) => t['stockId'] == stock['id'])
+        .fold(0.0, (sum, t) => sum + (t['qty'] as num).toDouble());
 
-      s['totalUsed'] = totalUsed;
-      s['initialQty'] = initial + totalTopUp; // Initial + all topups
-      s['currentLeft'] = (initial + totalTopUp) - totalUsed;
+      stock['totalUsed'] = totalUsed;
+      stock['initialQty'] = initial + totalTopUp; // Initial + all topups
+      stock['currentLeft'] = (initial + totalTopUp) - totalUsed;
+      result.add(stock);
     }
-    stocks.sort((a, b) => (a['currentLeft'] as num).compareTo(b['currentLeft'] as num));
-    return stocks;
+    result.sort((a, b) => (a['currentLeft'] as num).compareTo(b['currentLeft'] as num));
+    return result;
   }
 
   static Future<List<Map<String, dynamic>>> getUsageRaw() async {
     final db = await database;
-    return await db.query('usage_log');
+    final res = await db.query('usage_log');
+    return res.map((e) => Map<String, dynamic>.from(e)).toList();
   }
 
   static Future<void> addUsage(int stockId, double qtyUsed, String date, String notes) async {
@@ -111,13 +153,15 @@ class DBHelper {
 
   static Future<List<Map<String, dynamic>>> getUsage(int stockId) async {
     final db = await database;
-    return await db.query('usage_log',
+    final res = await db.query('usage_log',
         where: 'stockId =?', whereArgs: [stockId], orderBy: 'date DESC');
+    return res.map((e) => Map<String, dynamic>.from(e)).toList();
   }
 
   static Future<List<Map<String, dynamic>>> getTopUpsRaw() async {
     final db = await database;
-    return await db.query('topups_log');
+    final res = await db.query('topups_log');
+    return res.map((e) => Map<String, dynamic>.from(e)).toList();
   }
 
   static Future<void> topUpStock(int stockId, double qty) async {
@@ -133,10 +177,8 @@ class DBHelper {
     final db = await database;
     final res = await db.query('stocks', where: 'id =?', whereArgs: [stockId], limit: 1);
     if (res.isNotEmpty) {
-      // Add calculated fields like getStocks does
-      final stock = res.first;
       final allStocks = await getStocks();
-      return allStocks.firstWhere((s) => s['id'] == stockId, orElse: () => stock);
+      return allStocks.firstWhere((s) => s['id'] == stockId, orElse: () => Map<String, dynamic>.from(res.first));
     }
     return null;
   }
@@ -147,12 +189,13 @@ class DBHelper {
 
   static Future<List<Map<String, dynamic>>> getTopUpsForStock(int stockId) async {
     final db = await database;
-    return await db.query('topups_log',
+    final res = await db.query('topups_log',
         where: 'stockId =?', whereArgs: [stockId], orderBy: 'date DESC');
+    return res.map((e) => Map<String, dynamic>.from(e)).toList();
   }
 
   static Future<List<Map<String, dynamic>>> getDashboardData() async {
-    return await getStocks();
+    return await getStocks(); // Same scope as yours
   }
 
   static Future<void> deleteStock(int id) async {
