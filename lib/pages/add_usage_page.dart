@@ -115,7 +115,7 @@ class _AddUsagePageState extends State<AddUsagePage> {
             SizedBox(height: 15),
             TextField(controller: usedCtrl, decoration: InputDecoration(labelText: 'Quantity Used', border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)), prefixIcon: Icon(Icons.remove, color: Colors.orange)), keyboardType: TextInputType.numberWithOptions(decimal: true)),
             SizedBox(height: 15),
-            TextField(controller: notesCtrl, decoration: InputDecoration(labelText: 'Notes - Required', border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)), prefixIcon: Icon(Icons.note, color: Colors.orange)), maxLines: 2), // CHANGED: label
+            TextField(controller: notesCtrl, decoration: InputDecoration(labelText: 'Purpose - Required', border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)), prefixIcon: Icon(Icons.note, color: Colors.orange)), maxLines: 2), // CHANGED: label
             // CHANGED: Date is now read-only and shows today
             Card(margin: EdgeInsets.symmetric(vertical: 15), child: ListTile(leading: Icon(Icons.calendar_today, color: Colors.orange), title: Text('Date'), subtitle: Text(DateFormat('dd MMM yyyy').format(date), style: TextStyle(fontWeight: FontWeight.bold)), trailing: Icon(Icons.lock, color: Colors.grey))), 
             
