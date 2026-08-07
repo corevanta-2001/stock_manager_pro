@@ -5,9 +5,9 @@ import 'pages/home_page.dart';
 import 'pages/add_stock_page.dart';
 import 'pages/add_usage_page.dart';
 import 'pages/analytics_page.dart';
-import 'pages/top_up_stock_page.dart'; // NEW
-import 'pages/stock_detail_page.dart'; // NEW
-import 'pages/todo_page.dart'; // NEW
+import 'pages/top_up_stock_page.dart';
+import 'pages/stock_detail_page.dart';
+import 'pages/todo_page.dart';
 
 void main() => runApp(StockApp());
 
@@ -41,13 +41,15 @@ class _MainScaffoldState extends State<MainScaffold> {
   int _currentIndex = 0;
   List<Map> stocks = [];
 
-  late List<Widget> pages = [
+  // KEY FIX: rebuild pages every build so they get fresh callback
+  List<Widget> get pages => [
     HomePage(onRefresh: loadStocks),
     AddUsagePage(onAdded: loadStocks),
-    TodoPage(), // NEW
-    AnalyticsPage(),
+    TodoPage(),
+    AnalyticsPage(onRefresh: loadStocks), // CHANGED: pass refresh
   ];
-  final titles = ['Dashboard', 'Log Usage', 'To-Do', 'Analytics']; // CHANGED
+
+  final titles = ['Dashboard', 'Log Usage', 'To-Do', 'Analytics'];
 
   @override
   void initState() {
@@ -60,7 +62,6 @@ class _MainScaffoldState extends State<MainScaffold> {
     if(mounted) setState(() {});
   }
 
-  // Function to open AddStockPage as push and return to home
   void _openAddStockPage() async {
     final result = await Navigator.push(
       context, 
@@ -68,21 +69,20 @@ class _MainScaffoldState extends State<MainScaffold> {
     );
     if(result == true) { 
       setState(() => _currentIndex = 0);
+      await loadStocks(); // force refresh after pop
     }
   }
 
-  // Function to open AnalyticsPage as push and return to home
   void _openAnalyticsPage() async {
     final result = await Navigator.push(
-        context, 
-            MaterialPageRoute(builder: (_) => AnalyticsPage())
-              );
-                if(result == true) { 
-                    setState(() => _currentIndex = 0);
-                      }
-                      }
+      context, 
+      MaterialPageRoute(builder: (_) => AnalyticsPage(onRefresh: loadStocks))
+    );
+    if(result == true) { 
+      setState(() => _currentIndex = 0);
+    }
+  }
 
-  // Function to open AddUsagePage as push and return to home
   void _openAddUsagePage() async {
     final result = await Navigator.push(
       context, 
@@ -90,10 +90,10 @@ class _MainScaffoldState extends State<MainScaffold> {
     );
     if(result == true) { 
       setState(() => _currentIndex = 0);
+      await loadStocks(); // force refresh after pop
     }
   }
 
-  // NEW: Function to open TopUpPage as push and return to home
   void _openTopUpPage([Map? preselected]) async {
     final result = await Navigator.push(
       context,
@@ -101,6 +101,7 @@ class _MainScaffoldState extends State<MainScaffold> {
     );
     if(result == true) {
       setState(() => _currentIndex = 0);
+      await loadStocks(); // force refresh after pop
     }
   }
 
@@ -135,10 +136,10 @@ class _MainScaffoldState extends State<MainScaffold> {
                   ListTile(leading: Icon(Icons.dashboard), title: Text('Dashboard'), onTap: () => setState(() { _currentIndex = 0; Navigator.pop(context); })),
                   Divider(),
                   Padding(padding: EdgeInsets.only(left: 16, top: 8, bottom: 8), child: Text('YOUR STOCKS', style: TextStyle(fontSize: 12, color: Colors.grey))),
-                 ...stocks.map((s) => ListTile(
-                    leading: CircleAvatar(child: Text(s['name'][0].toUpperCase())),
-                    title: Text(s['name']),
-                    subtitle: Text('${(s['currentLeft']?? s['initialQty']).toStringAsFixed(1)} ${s['unit']} left'),
+                ...stocks.map((s) => ListTile(
+                    leading: CircleAvatar(child: Text(s['name'].toString()[0].toUpperCase())),
+                    title: Text(s['name'].toString()),
+                    subtitle: Text('${((s['currentLeft']?? s['initialQty']) as num).toStringAsFixed(1)} ${s['unit']} left'),
                     trailing: IconButton(
                       icon: Icon(Icons.delete_outline, size: 18),
                       onPressed: () async {
@@ -155,22 +156,21 @@ class _MainScaffoldState extends State<MainScaffold> {
                         );
                         if(confirm == true) {
                           await DBHelper.deleteStock(s['id']);
-                          loadStocks();
+                          await loadStocks(); // CHANGED: await
                         }
                       },
                     ),
                     onTap: () {
                       Navigator.pop(context);
-                      setState(() => _currentIndex = 0);
+                      Navigator.push(context, MaterialPageRoute(builder: (_) => StockDetailPage(stockId: s['id']))); // CHANGED: go to detail
                     },
                   )),
                   Divider(),
                   ListTile(leading: Icon(Icons.add_box), title: Text('Add Stock'), onTap: () { Navigator.pop(context); _openAddStockPage(); }),
-                  // NEW: Top Up Stock
                   ListTile(leading: Icon(Icons.add_circle_outline), title: Text('Top Up Stock'), onTap: () { Navigator.pop(context); _openTopUpPage(); }),
                   ListTile(leading: Icon(Icons.remove_shopping_cart), title: Text('Log Usage'), onTap: () { Navigator.pop(context); _openAddUsagePage(); }),
-                  ListTile(leading: Icon(Icons.checklist), title: Text('To-Do List'), onTap: () => setState(() { _currentIndex = 2; Navigator.pop(context); })), // NEW
-                  ListTile(leading: Icon(Icons.bar_chart), title: Text('Stock Stats'), onTap: () => setState(() { _currentIndex = 3; Navigator.pop(context); })), // CHANGED index
+                  ListTile(leading: Icon(Icons.checklist), title: Text('To-Do List'), onTap: () => setState(() { _currentIndex = 2; Navigator.pop(context); })),
+                  ListTile(leading: Icon(Icons.bar_chart), title: Text('Stock Stats'), onTap: () => setState(() { _currentIndex = 3; Navigator.pop(context); })),
                 ],
               ),
             )
@@ -181,11 +181,11 @@ class _MainScaffoldState extends State<MainScaffold> {
       bottomNavigationBar: NavigationBar(
         selectedIndex: _currentIndex,
         onDestinationSelected: (i) {
-          if(i == 1) { // Stock tab
+          if(i == 1) {
             _openAddStockPage();
-          } else if(i == 2) { // To-Do tab - now opens as page
+          } else if(i == 2) {
             setState(() => _currentIndex = i);
-          } else if(i == 3) { // Usage tab - shifted because To-Do added
+          } else if(i == 3) {
             _openAddUsagePage();
           } else {
             setState(() => _currentIndex = i);
@@ -194,9 +194,8 @@ class _MainScaffoldState extends State<MainScaffold> {
         destinations: [
           NavigationDestination(icon: Icon(Icons.dashboard), label: 'Home'),
           NavigationDestination(icon: Icon(Icons.add_box), label: 'Stock'),
-          NavigationDestination(icon: Icon(Icons.checklist), label: 'To-Do'), // NEW
-          NavigationDestination(icon: Icon(Icons.remove_shopping_cart), label: 'Usage'), // CHANGED position
-          
+          NavigationDestination(icon: Icon(Icons.checklist), label: 'To-Do'),
+          NavigationDestination(icon: Icon(Icons.remove_shopping_cart), label: 'Usage'),
         ],
       ),
     );

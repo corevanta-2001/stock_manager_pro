@@ -4,13 +4,14 @@ import '../database/db_helper.dart';
 import 'package:fl_chart/fl_chart.dart';
 
 class AnalyticsPage extends StatefulWidget {
-  const AnalyticsPage({Key? key}) : super(key: key);
+  final VoidCallback? onRefresh; // ADDED: to match main.dart
+  const AnalyticsPage({Key? key, this.onRefresh}) : super(key: key); // ADDED: this.onRefresh
   @override
   State<AnalyticsPage> createState() => _AnalyticsPageState();
 }
 
 class _AnalyticsPageState extends State<AnalyticsPage> {
-  List<Map> data = [];
+  List<Map<String, dynamic>> data = [];
   bool isLoading = true;
   String? error;
 
@@ -23,7 +24,11 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
 Future<void> loadData() async {
     try {
       setState(() { isLoading = true; error = null; });
-      data = await DBHelper.getDashboardData(); // <-- Same function, now uses SQLite
+      final raw = await DBHelper.getDashboardData();
+      
+      // KEY FIX FOR RELEASE: Make mutable copy. Prevents "Unsupported operation: read-only"
+      data = raw.map((e) => Map<String, dynamic>.from(e)).toList();
+      
       if(mounted) setState(() { isLoading = false; });
     } catch (e, stack) {
       if(mounted) setState(() { isLoading = false; error = e.toString(); });
@@ -46,16 +51,19 @@ Future<void> loadData() async {
     if(error!= null) return Center(child: Padding(padding: EdgeInsets.all(20), child: Text('Error: $error', style: TextStyle(color: Colors.red))));
     if(data.isEmpty) return Center(child: Text('Add stocks to see analytics', style: TextStyle(fontSize: 16)));
 
-    return RefreshIndicator( // <-- ADDED: pull to refresh analytics
+    return RefreshIndicator(
       color: Colors.teal,
-      onRefresh: loadData,
+      onRefresh: () async { // CHANGED: also call parent refresh
+        await loadData();
+        widget.onRefresh?.call();
+      },
       child: ListView(
         padding: EdgeInsets.all(16),
         children: [
           Text('Stock Analytics', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
           SizedBox(height: 16),
 
-        ...List.generate(data.length, (index) {
+      ...List.generate(data.length, (index) {
             var stock = data[index];
             double initial = (stock['initialQty'] as num).toDouble();
             double left = (stock['currentLeft'] as num).toDouble();
@@ -72,11 +80,10 @@ Future<void> loadData() async {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // HEADER
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Text(stock['name'], style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: color)),
+                        Text(stock['name'].toString(), style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: color)),
                         Chip(
                           label: Text('${left.toStringAsFixed(1)} ${stock['unit']} left', style: TextStyle(color: Colors.white)),
                           backgroundColor: percentLeft < 0.2? Colors.red : color,
@@ -84,11 +91,8 @@ Future<void> loadData() async {
                       ],
                     ),
                     SizedBox(height: 16),
-
-                    // ROW: PIE + BAR
                     Row(
                       children: [
-                        // PIE CHART: Used vs Left
                         Expanded(
                           child: Column(
                             children: [
@@ -123,7 +127,6 @@ Future<void> loadData() async {
                           ),
                         ),
                         SizedBox(width: 10),
-                        // BAR CHART: Initial vs Used
                         Expanded(
                           child: Column(
                             children: [
@@ -136,14 +139,8 @@ Future<void> loadData() async {
                                     alignment: BarChartAlignment.spaceAround,
                                     maxY: initial * 1.2,
                                     barGroups: [
-                                      BarChartGroupData(
-                                        x: 0,
-                                        barRods: [BarChartRodData(toY: initial, color: color.withOpacity(0.4), width: 20, borderRadius: BorderRadius.circular(4))]
-                                      ),
-                                      BarChartGroupData(
-                                        x: 1,
-                                        barRods: [BarChartRodData(toY: used, color: Colors.orangeAccent, width: 20, borderRadius: BorderRadius.circular(4))]
-                                      ),
+                                      BarChartGroupData(x: 0, barRods: [BarChartRodData(toY: initial, color: color.withOpacity(0.4), width: 20, borderRadius: BorderRadius.circular(4))]),
+                                      BarChartGroupData(x: 1, barRods: [BarChartRodData(toY: used, color: Colors.orangeAccent, width: 20, borderRadius: BorderRadius.circular(4))]),
                                     ],
                                     titlesData: FlTitlesData(
                                       bottomTitles: AxisTitles(sideTitles: SideTitles(showTitles: true, getTitlesWidget: (v,i) {
@@ -164,8 +161,6 @@ Future<void> loadData() async {
                       ],
                     ),
                     SizedBox(height: 16),
-
-                    // PROGRESS BAR
                     Text('Stock Level: ${(percentLeft * 100).toStringAsFixed(0)}%', style: TextStyle(fontSize: 12)),
                     SizedBox(height: 6),
                     ClipRRect(
